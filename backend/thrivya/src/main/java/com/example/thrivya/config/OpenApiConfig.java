@@ -1,4 +1,4 @@
 package com.example.thrivya.config;
 
-public class JwtService {
+public class OpenApiConfig {
 }

@@ -1,4 +1,4 @@
-package com.example.thrivya.service;
+package com.example.thrivya.security;
 
 public class CustomUserdetailsService {
 }
