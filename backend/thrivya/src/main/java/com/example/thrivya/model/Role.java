@@ -1,4 +1,8 @@
 package com.example.thrivya.model;
 
-public class Role {
+public enum Role {
+    STUDENT,
+    PLACEMENT_CELL,
+    RECRUITER,
+    TECH_INTERVIEWER
 }
