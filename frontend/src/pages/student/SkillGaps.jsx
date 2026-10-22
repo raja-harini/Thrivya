@@ -17,6 +17,7 @@ import {
 } from "../../api/studentApi";
 
 import RecommendationPanel from "../../components/RecommendationPanel";
+import ProjectSuggestions from "../../components/ProjectSuggestions";
 
 export default function SkillGaps() {
   const navigate = useNavigate();
@@ -24,7 +25,11 @@ export default function SkillGaps() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [expandedSkillId, setExpandedSkillId] =
+
+  const [expandedLearningSkillId, setExpandedLearningSkillId] =
+    useState(null);
+
+  const [expandedProjectGapId, setExpandedProjectGapId] =
     useState(null);
 
   async function loadExistingGaps() {
@@ -58,6 +63,9 @@ export default function SkillGaps() {
       const result = await calculateSkillGaps();
 
       setData(result);
+
+      setExpandedLearningSkillId(null);
+      setExpandedProjectGapId(null);
     } catch (requestError) {
       setError(
         requestError.response?.data?.message ||
@@ -319,8 +327,11 @@ export default function SkillGaps() {
                   gap.skillGapId ||
                   `${gap.skillName}-${index}`;
 
-                const isExpanded =
-                  expandedSkillId === skillKey;
+                const isLearningExpanded =
+                  expandedLearningSkillId === skillKey;
+
+                const isProjectExpanded =
+                  expandedProjectGapId === skillKey;
 
                 return (
                   <article
@@ -384,10 +395,7 @@ export default function SkillGaps() {
 
                       <div style={styles.gapMeta}>
                         <strong>
-                          {Math.round(
-                            gapPercentage
-                          )}
-                          % gap
+                          {Math.round(gapPercentage)}% gap
                         </strong>
 
                         <span>
@@ -411,23 +419,47 @@ export default function SkillGaps() {
                         </p>
                       )}
 
-                      <button
-                        onClick={() =>
-                          setExpandedSkillId(
-                            isExpanded
-                              ? null
-                              : skillKey
-                          )
-                        }
-                        style={styles.recommendButton}
-                      >
-                        {isExpanded
-                          ? "Hide learning options"
-                          : "View learning options"}
-                      </button>
+                      <div style={styles.actionButtons}>
+                        <button
+                          onClick={() =>
+                            setExpandedLearningSkillId(
+                              isLearningExpanded
+                                ? null
+                                : skillKey
+                            )
+                          }
+                          style={styles.recommendButton}
+                        >
+                          {isLearningExpanded
+                            ? "Hide learning options"
+                            : "View learning options"}
+                        </button>
 
-                      {isExpanded && (
+                        <button
+                          onClick={() =>
+                            setExpandedProjectGapId(
+                              isProjectExpanded
+                                ? null
+                                : skillKey
+                            )
+                          }
+                          style={styles.projectButton}
+                        >
+                          {isProjectExpanded
+                            ? "Hide project suggestions"
+                            : "View project suggestions"}
+                        </button>
+                      </div>
+
+                      {isLearningExpanded && (
                         <RecommendationPanel
+                          skillName={gap.skillName}
+                        />
+                      )}
+
+                      {isProjectExpanded && (
+                        <ProjectSuggestions
+                          skillGapId={gap.skillGapId}
                           skillName={gap.skillName}
                         />
                       )}
@@ -555,12 +587,27 @@ const styles = {
     fontWeight: 600,
   },
 
-  recommendButton: {
+  actionButtons: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
     marginTop: "12px",
+  },
+
+  recommendButton: {
     padding: "9px 14px",
     border: "none",
     borderRadius: "8px",
     background: "#0f766e",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  projectButton: {
+    padding: "9px 14px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#7c3aed",
     color: "white",
     cursor: "pointer",
   },

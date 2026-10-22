@@ -5,35 +5,78 @@ import {
   Routes,
 } from "react-router-dom";
 
+// Public pages
 import Home from "../pages/Home";
 import Unauthorized from "../pages/Unauthorized";
 
+// Authentication
 import Login from "../auth/Login";
 import Register from "../auth/Register";
 import ProtectedRoute from "../auth/ProtectedRoute";
 import RoleRedirect from "../auth/RoleRedirect";
 
+// Student dashboard and profile setup
 import StudentDashboard from "../pages/student/StudentDashboard";
 import StudentProfileSetup from "../pages/student/StudentProfileSetup";
+import InputPreference from "../pages/student/InputPreference";
 import ResumeUpload from "../pages/student/ResumeUpload";
 import ManualSkills from "../pages/student/ManualSkills";
 import RoleSelection from "../pages/student/RoleSelection";
 import MySkills from "../pages/student/MySkills";
+
+// Student analysis
 import ATSReport from "../pages/student/ATSReport";
 import SkillGaps from "../pages/student/SkillGaps";
 import SkillGapHistory from "../pages/student/SkillGapHistory";
-import ResumeVersions from "../pages/student/ResumeVersions";
+
+// Student learning progress and resume management
 import ProgressUpdate from "../pages/student/ProgressUpdate";
-import ProjectEvidence from "../pages/student/ProjectEvidence";
+import ResumeVersions from "../pages/student/ResumeVersions";
 import ResumeContent from "../pages/student/ResumeContent";
 
-import PlacementCellDashboard from "../pages/placement/PlacementCellDashboard";
-import RecruiterDashboard from "../pages/recruiter/RecruiterDashboard";
-import InterviewerDashboard from "../pages/interviewer/InterviewerDashboard";
+// Project-based learning
+import MyProjects from "../pages/student/MyProjects";
+import ProjectEvidence from "../pages/student/ProjectEvidence";
 
-function StudentRoute({ children }) {
+// Student career evidence
+import CareerEvidenceProfile from "../pages/student/CareerEvidenceProfile";
+import SkillEvidenceManager from "../pages/student/SkillEvidenceManager";
+import CareerProfileSharing from "../pages/student/CareerProfileSharing";
+
+// Placement cell
+import PlacementCellDashboard from "../pages/placement/PlacementCellDashboard";
+
+// Recruiter
+import RecruiterDashboard from "../pages/recruiter/RecruiterDashboard";
+import CareerProfileSearch from "../pages/recruiter/CareerProfileSearch";
+import SharedCareerProfile from "../pages/recruiter/SharedCareerProfile";
+
+// Technical interviewer
+import InterviewerDashboard from "../pages/interviewer/InterviewerDashboard";
+import EvidenceReviewQueue from "../pages/interviewer/EvidenceReviewQueue";
+
+// Shared evidence-detail page
+import CareerEvidenceDetail from "../pages/CareerEvidenceDetail";
+
+function StudentOnly({ children }) {
   return (
     <ProtectedRoute allowedRoles={["STUDENT"]}>
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+function RecruiterOnly({ children }) {
+  return (
+    <ProtectedRoute allowedRoles={["RECRUITER"]}>
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+function InterviewerOnly({ children }) {
+  return (
+    <ProtectedRoute allowedRoles={["TECH_INTERVIEWER"]}>
       {children}
     </ProtectedRoute>
   );
@@ -43,201 +86,277 @@ export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Root route: redirects logged-in users by role */}
-        <Route
-          path="/"
-          element={<RoleRedirect />}
-        />
-
         {/* Public routes */}
-        <Route
-          path="/home"
-          element={<Home />}
-        />
-
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-          path="/register"
-          element={<Register />}
-        />
+        <Route path="/" element={<RoleRedirect />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* Student dashboard */}
         <Route
           path="/student"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <StudentDashboard />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
-        {/* Student career-profile setup */}
+        {/* Student profile setup */}
         <Route
           path="/student/setup"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <StudentProfileSetup />
-            </StudentRoute>
+            </StudentOnly>
+          }
+        />
+
+        <Route
+          path="/student/input-preference"
+          element={
+            <StudentOnly>
+              <InputPreference />
+            </StudentOnly>
           }
         />
 
         <Route
           path="/student/resume-upload"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <ResumeUpload />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
         <Route
           path="/student/manual-skills"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <ManualSkills />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
         <Route
           path="/student/role-selection"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <RoleSelection />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
-        {/* Student profile and analysis */}
         <Route
           path="/student/skills"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <MySkills />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
+        {/* Student analysis */}
         <Route
           path="/student/ats"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <ATSReport />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
         <Route
           path="/student/skill-gaps"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <SkillGaps />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
         <Route
           path="/student/skill-gap-history"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <SkillGapHistory />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
-        {/* Student progress and resume improvement */}
+        {/* Student learning progress and resume management */}
         <Route
           path="/student/progress"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <ProgressUpdate />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
         <Route
           path="/student/resume-versions"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <ResumeVersions />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
-        <Route
-          path="/student/project-evidence"
-          element={
-            <StudentRoute>
-              <ProjectEvidence />
-            </StudentRoute>
-          }
-        />
-
-        {/* Evidence-aware generated resume content */}
         <Route
           path="/student/resume-content"
           element={
-            <StudentRoute>
+            <StudentOnly>
               <ResumeContent />
-            </StudentRoute>
+            </StudentOnly>
           }
         />
 
-        {/* Placement cell routes */}
+        {/* Project-based learning */}
+        <Route
+          path="/student/my-projects"
+          element={
+            <StudentOnly>
+              <MyProjects />
+            </StudentOnly>
+          }
+        />
+
+        <Route
+          path="/student/projects/:projectId/evidence"
+          element={
+            <StudentOnly>
+              <ProjectEvidence />
+            </StudentOnly>
+          }
+        />
+
+        {/* Preserve compatibility with the old project-evidence URL */}
+        <Route
+          path="/student/project-evidence"
+          element={
+            <StudentOnly>
+              <Navigate
+                to="/student/my-projects"
+                replace
+              />
+            </StudentOnly>
+          }
+        />
+
+        {/* Student career evidence */}
+        <Route
+          path="/student/career-evidence"
+          element={
+            <StudentOnly>
+              <CareerEvidenceProfile />
+            </StudentOnly>
+          }
+        />
+
+        <Route
+          path="/student/career-evidence/claims"
+          element={
+            <StudentOnly>
+              <SkillEvidenceManager />
+            </StudentOnly>
+          }
+        />
+
+        <Route
+          path="/student/career-evidence/sharing"
+          element={
+            <StudentOnly>
+              <CareerProfileSharing />
+            </StudentOnly>
+          }
+        />
+
+        <Route
+          path="/student/career-evidence/artifacts/:artifactId"
+          element={
+            <StudentOnly>
+              <CareerEvidenceDetail audience="student" />
+            </StudentOnly>
+          }
+        />
+
+        {/* Placement cell dashboard */}
         <Route
           path="/placement"
           element={
-            <ProtectedRoute
-              allowedRoles={["PLACEMENT_CELL"]}
-            >
+            <ProtectedRoute allowedRoles={["PLACEMENT_CELL"]}>
               <PlacementCellDashboard />
             </ProtectedRoute>
           }
         />
 
-        {/* Recruiter routes */}
+        {/* Recruiter dashboard and shared career profiles */}
         <Route
           path="/recruiter"
           element={
-            <ProtectedRoute
-              allowedRoles={["RECRUITER"]}
-            >
+            <RecruiterOnly>
               <RecruiterDashboard />
-            </ProtectedRoute>
+            </RecruiterOnly>
           }
         />
 
-        {/* Technical interviewer routes */}
+        <Route
+          path="/recruiter/career-evidence"
+          element={
+            <RecruiterOnly>
+              <CareerProfileSearch />
+            </RecruiterOnly>
+          }
+        />
+
+        <Route
+          path="/recruiter/career-evidence/candidates/:studentId"
+          element={
+            <RecruiterOnly>
+              <SharedCareerProfile />
+            </RecruiterOnly>
+          }
+        />
+
+        <Route
+          path="/recruiter/career-evidence/candidates/:studentId/artifacts/:artifactId"
+          element={
+            <RecruiterOnly>
+              <CareerEvidenceDetail audience="recruiter" />
+            </RecruiterOnly>
+          }
+        />
+
+        {/* Technical interviewer dashboard and evidence reviews */}
         <Route
           path="/interviewer"
           element={
-            <ProtectedRoute
-              allowedRoles={["TECH_INTERVIEWER"]}
-            >
+            <InterviewerOnly>
               <InterviewerDashboard />
-            </ProtectedRoute>
+            </InterviewerOnly>
           }
         />
 
-        {/* Unauthorized route */}
+        <Route
+          path="/interviewer/evidence-reviews"
+          element={
+            <InterviewerOnly>
+              <EvidenceReviewQueue />
+            </InterviewerOnly>
+          }
+        />
+
+        {/* Unauthorized and fallback pages */}
         <Route
           path="/unauthorized"
           element={<Unauthorized />}
         />
 
-        {/* Unknown paths */}
         <Route
           path="*"
-          element={
-            <Navigate
-              to="/home"
-              replace
-            />
-          }
+          element={<Navigate to="/home" replace />}
         />
       </Routes>
     </BrowserRouter>

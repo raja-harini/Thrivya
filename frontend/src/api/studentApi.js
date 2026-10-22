@@ -1,15 +1,11 @@
 import axiosClient from "./axiosClient";
 
-// ========================================
-// Career Profile: Manual Skills and Resume
-// ========================================
+// Career profile
 
 export async function saveManualSkills(skillsText) {
   const response = await axiosClient.post(
     "/student/profile/manual-skills",
-    {
-      skillsText,
-    }
+    { skillsText }
   );
 
   return response.data;
@@ -17,7 +13,6 @@ export async function saveManualSkills(skillsText) {
 
 export async function uploadResume(file) {
   const formData = new FormData();
-
   formData.append("file", file);
 
   const response = await axiosClient.post(
@@ -49,9 +44,7 @@ export async function getResumeHistory() {
   return response.data;
 }
 
-// ========================================
-// Career Role Selection
-// ========================================
+// Career role selection
 
 export async function getRoleSuggestions() {
   const response = await axiosClient.get(
@@ -64,9 +57,7 @@ export async function getRoleSuggestions() {
 export async function searchDesiredRole(desiredRole) {
   const response = await axiosClient.post(
     "/student/roles/desired",
-    {
-      desiredRole,
-    }
+    { desiredRole }
   );
 
   return response.data;
@@ -75,17 +66,13 @@ export async function searchDesiredRole(desiredRole) {
 export async function selectRole(roleId) {
   const response = await axiosClient.post(
     "/student/roles/select",
-    {
-      roleId,
-    }
+    { roleId }
   );
 
   return response.data;
 }
 
-// ========================================
 // Explainable ATS
-// ========================================
 
 export async function generateATSReport() {
   const response = await axiosClient.post(
@@ -111,9 +98,7 @@ export async function getATSHistory() {
   return response.data;
 }
 
-// ========================================
-// Ordered Skill Gap Analysis
-// ========================================
+// Skill-gap analysis
 
 export async function calculateSkillGaps() {
   const response = await axiosClient.post(
@@ -139,9 +124,7 @@ export async function getSkillGapHistory() {
   return response.data;
 }
 
-// ========================================
-// Learning Progress
-// ========================================
+// Learning progress
 
 export async function updateSkillProgress(progressData) {
   const response = await axiosClient.post(
@@ -152,42 +135,86 @@ export async function updateSkillProgress(progressData) {
   return response.data;
 }
 
-// ========================================
-// Learning Recommendations
-// ========================================
+// Learning recommendations
 
 export async function getRecommendations(
   skillName,
   type
 ) {
-  const params = new URLSearchParams({
-    skill: skillName,
-    type,
-  });
-
   const response = await axiosClient.get(
-    `/student/recommendations?${params.toString()}`
+    "/student/recommendations",
+    {
+      params: {
+        skill: skillName,
+        type,
+      },
+    }
   );
 
   return response.data;
 }
 
-// ========================================
-// Project Evidence
-// ========================================
+// Project-based learning
 
-export async function createProjectEvidence(projectData) {
+export async function getProjectSuggestions(skillGapId) {
+  const response = await axiosClient.get(
+    "/student/projects/suggestions",
+    {
+      params: {
+        skillGapId,
+      },
+    }
+  );
+
+  return response.data;
+}
+
+export async function getRoleProjectSuggestions() {
+  const response = await axiosClient.get(
+    "/student/projects/suggestions/role"
+  );
+
+  return response.data;
+}
+
+export async function selectProject(suggestionId) {
   const response = await axiosClient.post(
-    "/student/projects",
-    projectData
+    "/student/projects/select",
+    { suggestionId }
   );
 
   return response.data;
 }
 
-// ========================================
-// Evidence-Aware Resume Content Generation
-// ========================================
+export async function getMyProjects() {
+  const response = await axiosClient.get(
+    "/student/projects/my-projects"
+  );
+
+  return response.data;
+}
+
+export async function updateProjectEvidence(
+  projectId,
+  data
+) {
+  const id = Number(projectId);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error(
+      "A valid project ID is required to save project evidence."
+    );
+  }
+
+  const response = await axiosClient.put(
+    `/student/projects/${id}/evidence`,
+    data
+  );
+
+  return response.data;
+}
+
+// Evidence-aware resume content
 
 export async function generateResumeContent() {
   const response = await axiosClient.post(

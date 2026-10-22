@@ -2,14 +2,13 @@ package com.example.thrivya.service;
 
 import com.example.thrivya.dto.response.GeneratedEvidenceResponse;
 import com.example.thrivya.model.ProfileSkill;
-import lombok.RequiredArgsConstructor;
+import com.example.thrivya.model.StudentProject;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class EvidenceGuardrailService {
 
     public List<GeneratedEvidenceResponse> verifySkills(
@@ -20,9 +19,6 @@ public class EvidenceGuardrailService {
 
         for (ProfileSkill profileSkill : profileSkills) {
             String status = determineStatus(profileSkill);
-
-            boolean requiresConfirmation =
-                    !"VERIFIED".equals(status);
 
             results.add(
                     GeneratedEvidenceResponse.builder()
@@ -38,13 +34,47 @@ public class EvidenceGuardrailService {
                                     profileSkill.getEvidenceText()
                             )
                             .requiresUserConfirmation(
-                                    requiresConfirmation
+                                    !"VERIFIED".equals(status)
                             )
                             .build()
             );
         }
 
         return results;
+    }
+
+    public GeneratedEvidenceResponse verifyProject(
+            StudentProject project
+    ) {
+        boolean hasDescription =
+                project.getStudentDescription() != null
+                        && !project.getStudentDescription()
+                        .isBlank();
+
+        boolean hasEvidence =
+                project.getEvidenceText() != null
+                        && !project.getEvidenceText()
+                        .isBlank();
+
+        boolean hasRepository =
+                project.getGithubUrl() != null
+                        && !project.getGithubUrl()
+                        .isBlank();
+
+        String status =
+                hasDescription && (hasEvidence || hasRepository)
+                        ? "USER_CONFIRMED"
+                        : "REQUIRES_CONFIRMATION";
+
+        return GeneratedEvidenceResponse.builder()
+                .claim(project.getTitle())
+                .status(status)
+                .source("PROJECT")
+                .evidenceText(
+                        project.getEvidenceText()
+                )
+                .requiresUserConfirmation(true)
+                .build();
     }
 
     public boolean isSafeForAutomaticResumeUse(
@@ -68,7 +98,8 @@ public class EvidenceGuardrailService {
     private String determineStatus(
             ProfileSkill profileSkill
     ) {
-        String source = profileSkill.getSource();
+        String source =
+                profileSkill.getSource();
 
         String evidenceText =
                 profileSkill.getEvidenceText();

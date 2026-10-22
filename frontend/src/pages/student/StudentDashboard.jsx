@@ -5,55 +5,71 @@ import DashboardCard from "../../components/DashboardCard";
 import { getStudentDashboard } from "../../api/dashboardApi";
 import { getStudentProfile } from "../../api/studentApi";
 
+function getStoredUser() {
+  try {
+    const storedUser = localStorage.getItem("thrivyaUser");
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function StudentDashboard() {
   const navigate = useNavigate();
 
+  const [user] = useState(getStoredUser);
   const [dashboard, setDashboard] = useState(null);
   const [profile, setProfile] = useState(null);
+
   const [error, setError] = useState("");
+  const [profileError, setProfileError] = useState("");
   const [profileLoading, setProfileLoading] = useState(true);
-
-  const storedUser = localStorage.getItem("thrivyaUser");
-
-  let user = null;
-
-  try {
-    user = storedUser ? JSON.parse(storedUser) : null;
-  } catch {
-    user = null;
-  }
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
 
+    function handleUnauthorized(requestError) {
+      if (requestError.response?.status !== 401) {
+        return false;
+      }
+
+      localStorage.removeItem("thrivyaToken");
+      localStorage.removeItem("thrivyaUser");
+
+      navigate("/login", { replace: true });
+      return true;
+    }
+
     async function loadDashboardData() {
       setError("");
+      setProfileError("");
       setProfileLoading(true);
 
       try {
         const dashboardData = await getStudentDashboard();
 
-        if (isMounted) {
-          setDashboard(dashboardData);
-        }
-      } catch (requestError) {
-        if (requestError.response?.status === 401) {
-          localStorage.removeItem("thrivyaToken");
-          localStorage.removeItem("thrivyaUser");
-
-          navigate("/login", {
-            replace: true,
-          });
-
+        if (!isMounted) {
           return;
         }
 
-        if (isMounted) {
-          setError(
-            requestError.response?.data?.message ||
-              "Unable to load student dashboard"
-          );
+        setDashboard(dashboardData);
+      } catch (requestError) {
+        if (!isMounted) {
+          return;
         }
+
+        if (handleUnauthorized(requestError)) {
+          return;
+        }
+
+        setError(
+          requestError.response?.data?.message ||
+            "Unable to load student dashboard."
+        );
+
+        setProfileLoading(false);
+        return;
       }
 
       try {
@@ -63,19 +79,22 @@ export default function StudentDashboard() {
           setProfile(profileData);
         }
       } catch (requestError) {
-        if (requestError.response?.status === 401) {
-          localStorage.removeItem("thrivyaToken");
-          localStorage.removeItem("thrivyaUser");
-
-          navigate("/login", {
-            replace: true,
-          });
-
+        if (!isMounted) {
           return;
         }
 
-        if (isMounted) {
-          setProfile(null);
+        if (handleUnauthorized(requestError)) {
+          return;
+        }
+
+        setProfile(null);
+
+        // A missing profile is expected for a new student.
+        if (requestError.response?.status !== 404) {
+          setProfileError(
+            requestError.response?.data?.message ||
+              "Unable to load your career profile. Please try again."
+          );
         }
       } finally {
         if (isMounted) {
@@ -89,156 +108,173 @@ export default function StudentDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
-
-  const studentName =
-    user?.username ||
-    user?.userName ||
-    user?.name ||
-    "Student";
-
-  const hasUploadedResume =
-    Boolean(profile?.resumeId) ||
-    Boolean(profile?.fileName);
-
-  const hasSelectedRole =
-    Boolean(profile?.selectedRoleId) ||
-    Boolean(profile?.selectedRoleTitle);
-
-  const hasSkills =
-    Array.isArray(profile?.skills) &&
-    profile.skills.length > 0;
-
-  const canGenerateATS =
-    hasUploadedResume &&
-    hasSelectedRole &&
-    !profileLoading;
-
-  const canViewSkillGaps =
-    hasSelectedRole &&
-    hasSkills &&
-    !profileLoading;
-
-  const canGenerateResumeContent =
-    hasUploadedResume &&
-    hasSelectedRole &&
-    hasSkills &&
-    !profileLoading;
-
-  let atsStatusMessage =
-    "Upload a resume and select a target role to generate your ATS report.";
-
-  if (profileLoading) {
-    atsStatusMessage =
-      "Checking your resume and selected role...";
-  } else if (!hasUploadedResume && !hasSelectedRole) {
-    atsStatusMessage =
-      "Upload a resume and select a target role before generating ATS.";
-  } else if (!hasUploadedResume) {
-    atsStatusMessage =
-      "Upload a resume before generating ATS.";
-  } else if (!hasSelectedRole) {
-    atsStatusMessage =
-      "Select a target role before generating ATS.";
-  } else {
-    atsStatusMessage =
-      "Your ATS report will use your latest resume and selected role.";
-  }
-
-  let skillGapStatusMessage =
-    "Add skills and select a target role to view skill gaps.";
-
-  if (profileLoading) {
-    skillGapStatusMessage =
-      "Checking your skill profile and selected role...";
-  } else if (!hasSkills) {
-    skillGapStatusMessage =
-      "Add skills or upload a resume before viewing skill gaps.";
-  } else if (!hasSelectedRole) {
-    skillGapStatusMessage =
-      "Select a target role before viewing skill gaps.";
-  } else {
-    skillGapStatusMessage =
-      "View ordered skill gaps and recommended learning resources for your selected role.";
-  }
-
-  let resumeContentStatusMessage =
-    "Upload a resume, add skills, and select a target role before generating resume content.";
-
-  if (profileLoading) {
-    resumeContentStatusMessage =
-      "Checking your resume evidence and selected role...";
-  } else if (!hasUploadedResume) {
-    resumeContentStatusMessage =
-      "Upload a resume before generating evidence-aware resume content.";
-  } else if (!hasSkills) {
-    resumeContentStatusMessage =
-      "Add skills or upload a readable resume before generating resume content.";
-  } else if (!hasSelectedRole) {
-    resumeContentStatusMessage =
-      "Select a target role before generating resume content.";
-  } else {
-    resumeContentStatusMessage =
-      "Generate copy-ready content using your latest resume, selected role, verified skills, and learning evidence.";
-  }
-
-  function handleProfileSetup() {
-    navigate("/student/setup");
-  }
-
-  function handleShowSkills() {
-    navigate("/student/skills");
-  }
-
-  function handleATSReport() {
-    if (!canGenerateATS) {
-      return;
-    }
-
-    navigate("/student/ats");
-  }
-
-  function handleSkillGapAnalysis() {
-    if (!canViewSkillGaps) {
-      return;
-    }
-
-    navigate("/student/skill-gaps");
-  }
-
-  function handleResumeHistory() {
-    navigate("/student/resume-versions");
-  }
-
-  function handleProgressUpdate() {
-    navigate("/student/progress");
-  }
-
-  function handleResumeContent() {
-    if (!canGenerateResumeContent) {
-      return;
-    }
-
-    navigate("/student/resume-content");
-  }
+  }, [navigate, reloadKey]);
 
   function handleLogout() {
     localStorage.removeItem("thrivyaToken");
     localStorage.removeItem("thrivyaUser");
 
-    navigate("/login", {
-      replace: true,
-    });
+    navigate("/login", { replace: true });
   }
 
-  function handleTryAgain() {
-    window.location.reload();
+  function handleRetry() {
+    setReloadKey((previous) => previous + 1);
   }
+
+  const studentName =
+    user?.username || user?.userName || user?.name || "Student";
+
+  const hasUploadedResume = Boolean(
+    profile?.resumeId || profile?.fileName
+  );
+
+  const hasSelectedRole = Boolean(
+    profile?.selectedRoleId || profile?.selectedRoleTitle
+  );
+
+  const hasSkills =
+    Array.isArray(profile?.skills) && profile.skills.length > 0;
+
+  const profileReady = !profileLoading && !profileError;
+
+  const canGenerateATS =
+    profileReady && hasUploadedResume && hasSelectedRole;
+
+  const canViewSkillGaps =
+    profileReady && hasSelectedRole && hasSkills;
+
+  const canGenerateResumeContent =
+    profileReady &&
+    hasUploadedResume &&
+    hasSelectedRole &&
+    hasSkills;
+
+  const profileUnavailableMessage = profileLoading
+    ? "Checking your career profile..."
+    : profileError
+    ? "Your profile could not be checked. Retry loading it first."
+    : "";
+
+  const atsStatusMessage =
+    profileUnavailableMessage ||
+    (!hasUploadedResume && !hasSelectedRole
+      ? "Upload a resume and select a target role before generating ATS."
+      : !hasUploadedResume
+      ? "Upload a resume before generating ATS."
+      : !hasSelectedRole
+      ? "Select a target role before generating ATS."
+      : "Your ATS report will use your latest resume and selected role.");
+
+  const skillGapStatusMessage =
+    profileUnavailableMessage ||
+    (!hasSkills
+      ? "Add skills or upload a readable resume before viewing skill gaps."
+      : !hasSelectedRole
+      ? "Select a target role before viewing skill gaps."
+      : "View ordered skill gaps and learning resources for your selected role.");
+
+  const resumeContentStatusMessage =
+    profileUnavailableMessage ||
+    (!hasUploadedResume
+      ? "Upload a resume before generating resume content."
+      : !hasSkills
+      ? "Add skills or upload a readable resume before generating content."
+      : !hasSelectedRole
+      ? "Select a target role before generating resume content."
+      : "Generate copy-ready content from your resume and recorded learning evidence. Review every claim before using it.");
+
+  const featureCards = [
+    {
+      title: "Explainable ATS analysis",
+      description:
+        "Analyze your latest uploaded resume against your selected career role with factor-wise explanations.",
+      buttonLabel: profileLoading
+        ? "Checking profile..."
+        : "View ATS report",
+      path: "/student/ats",
+      enabled: canGenerateATS,
+      statusMessage: atsStatusMessage,
+      theme: "indigo",
+    },
+    {
+      title: "Ordered skill-gap analysis",
+      description:
+        "Compare your current skill profile with your selected role and identify gaps to address.",
+      buttonLabel: "View skill gaps",
+      path: "/student/skill-gaps",
+      enabled: canViewSkillGaps,
+      statusMessage: skillGapStatusMessage,
+      theme: "green",
+    },
+    {
+      title: "Learning progress",
+      description:
+        "Record what you have learned, practiced, or built, along with supporting evidence.",
+      buttonLabel: "Update learning progress",
+      path: "/student/progress",
+      enabled: true,
+      theme: "purple",
+    },
+    {
+      title: "Project-based learning",
+      description:
+        "View your selected projects, track your work, and submit evidence of the skills you applied.",
+      buttonLabel: "My project-based learning",
+      path: "/student/my-projects",
+      enabled: true,
+      theme: "teal",
+    },
+    {
+      title: "Evidence-aware resume content",
+      description:
+        "Create resume wording from your current profile, selected role, and recorded learning or project evidence.",
+      buttonLabel: profileLoading
+        ? "Checking profile..."
+        : "Generate resume content",
+      path: "/student/resume-content",
+      enabled: canGenerateResumeContent,
+      statusMessage: resumeContentStatusMessage,
+      theme: "amber",
+    },
+    {
+      title: "Resume version history",
+      description:
+        "View your active resume and previous uploads to review changes over time.",
+      buttonLabel: "View resume history",
+      path: "/student/resume-versions",
+      enabled: true,
+      theme: "sky",
+    },
+  ];
+
+  const evidenceActions = [
+    {
+      title: "My career evidence profile",
+      description:
+        "View your skill claims, supporting evidence, scoped review results, and role requirements without reviewed evidence.",
+      buttonLabel: "My career evidence profile",
+      path: "/student/career-evidence",
+    },
+    {
+      title: "Skill claims and evidence",
+      description:
+        "Submit specific claims about your skills and attach references that show your actual contribution.",
+      buttonLabel: "Manage skill claims and evidence",
+      path: "/student/career-evidence/claims",
+    },
+    {
+      title: "Recruiter sharing",
+      description:
+        "Choose which profile details an approved recruiter can access, set an expiry, and revoke permission when needed.",
+      buttonLabel: "Manage recruiter sharing",
+      path: "/student/career-evidence/sharing",
+    },
+  ];
 
   if (error) {
     return (
       <main style={styles.page}>
-        <section style={styles.errorCard}>
+        <section style={styles.stateCard}>
           <header style={styles.header}>
             <div>
               <p style={styles.brand}>Thrivya</p>
@@ -254,11 +290,13 @@ export default function StudentDashboard() {
             </button>
           </header>
 
-          <p style={styles.error}>{error}</p>
+          <p role="alert" style={styles.error}>
+            {error}
+          </p>
 
           <button
             type="button"
-            onClick={handleTryAgain}
+            onClick={handleRetry}
             style={styles.primaryButton}
           >
             Try again
@@ -271,10 +309,10 @@ export default function StudentDashboard() {
   if (!dashboard) {
     return (
       <main style={styles.page}>
-        <section style={styles.loadingCard}>
+        <section style={styles.stateCard} aria-busy="true">
           <p style={styles.brand}>Thrivya</p>
           <h1>Student Dashboard</h1>
-          <p>Loading your career dashboard...</p>
+          <p role="status">Loading your career dashboard...</p>
         </section>
       </main>
     );
@@ -294,19 +332,36 @@ export default function StudentDashboard() {
         Welcome, <strong>{studentName}</strong>
       </p>
 
-      <section style={styles.infoBox}>
-        <h2>Build your career profile</h2>
+      {profileError && (
+        <section style={styles.profileErrorBox}>
+          <p role="alert" style={styles.profileErrorText}>
+            {profileError}
+          </p>
 
-        <p>
-          Upload or update your resume, enter skills manually,
-          choose a desired role, or receive relevant role
-          suggestions from Thrivya.
-        </p>
-
-        <div style={styles.buttonGroup}>
           <button
             type="button"
-            onClick={handleProfileSetup}
+            onClick={handleRetry}
+            style={styles.secondaryButton}
+          >
+            Retry profile loading
+          </button>
+        </section>
+      )}
+
+      <section style={styles.infoBox}>
+        <h2 style={styles.sectionTitle}>
+          Build your career profile
+        </h2>
+
+        <p style={styles.description}>
+          Upload or update your resume, enter skills manually,
+          and choose a desired role or receive role suggestions.
+        </p>
+
+        <div style={styles.profileActions}>
+          <button
+            type="button"
+            onClick={() => navigate("/student/setup")}
             style={styles.primaryButton}
           >
             Set up my career profile
@@ -314,7 +369,7 @@ export default function StudentDashboard() {
 
           <button
             type="button"
-            onClick={handleShowSkills}
+            onClick={() => navigate("/student/skills")}
             style={styles.secondaryButton}
           >
             Show my skills
@@ -322,240 +377,217 @@ export default function StudentDashboard() {
         </div>
       </section>
 
-      <section style={styles.atsBox}>
-        <div>
-          <h2 style={styles.atsTitle}>
-            Explainable ATS analysis
-          </h2>
+      <section style={styles.evidenceSection}>
+        <h2 style={styles.sectionTitle}>
+          Career evidence and recruiter visibility
+        </h2>
 
-          <p style={styles.atsDescription}>
-            Analyze your latest uploaded resume against your
-            selected career role with factor-wise explanations.
-          </p>
+        <p style={styles.description}>
+          Keep your claims, supporting material, review decisions,
+          and sharing permissions in one place.
+        </p>
 
-          <p
-            style={
-              canGenerateATS
-                ? styles.readyMessage
-                : styles.warningMessage
-            }
-          >
-            {atsStatusMessage}
-          </p>
+        <p style={styles.evidenceNotice}>
+          Submitting a claim or evidence does not automatically
+          verify a skill. Review results apply only to the scope
+          actually checked.
+        </p>
+
+        <div style={styles.evidenceGrid}>
+          {evidenceActions.map((action) => (
+            <article
+              key={action.path}
+              style={styles.evidenceCard}
+            >
+              <h3 style={styles.evidenceCardTitle}>
+                {action.title}
+              </h3>
+
+              <p style={styles.description}>
+                {action.description}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate(action.path)}
+                style={styles.evidenceButton}
+              >
+                {action.buttonLabel}
+              </button>
+            </article>
+          ))}
         </div>
-
-        <button
-          type="button"
-          onClick={handleATSReport}
-          disabled={!canGenerateATS}
-          style={
-            canGenerateATS
-              ? styles.atsButton
-              : styles.disabledATSButton
-          }
-          title={
-            canGenerateATS
-              ? "Open explainable ATS report"
-              : atsStatusMessage
-          }
-        >
-          {profileLoading
-            ? "Checking profile..."
-            : "View ATS report"}
-        </button>
       </section>
 
-      <section style={styles.skillGapBox}>
-        <div>
-          <h2 style={styles.skillGapTitle}>
-            Ordered skill-gap analysis
-          </h2>
-
-          <p style={styles.skillGapDescription}>
-            Compare your current skills with your selected role
-            and identify the most important gaps first.
-          </p>
-
-          <p
-            style={
-              canViewSkillGaps
-                ? styles.readyMessage
-                : styles.warningMessage
-            }
-          >
-            {skillGapStatusMessage}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSkillGapAnalysis}
-          disabled={!canViewSkillGaps}
-          style={
-            canViewSkillGaps
-              ? styles.skillGapButton
-              : styles.disabledSkillGapButton
-          }
-          title={
-            canViewSkillGaps
-              ? "Open ordered skill-gap analysis"
-              : skillGapStatusMessage
-          }
-        >
-          View skill gaps
-        </button>
-      </section>
-
-      <section style={styles.progressBox}>
-        <div>
-          <h2 style={styles.progressTitle}>
-            Learning progress
-          </h2>
-
-          <p style={styles.progressDescription}>
-            Record new learning progress and evidence. Your
-            skill profile and future gap analysis can then
-            reflect the update.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleProgressUpdate}
-          style={styles.progressButton}
-        >
-          Update learning progress
-        </button>
-      </section>
-
-      <section style={styles.resumeContentBox}>
-        <div>
-          <h2 style={styles.resumeContentTitle}>
-            Evidence-aware resume content
-          </h2>
-
-          <p style={styles.resumeContentDescription}>
-            Generate safe, copy-ready resume content using your
-            latest resume, selected role, verified skills, and
-            learning-progress evidence.
-          </p>
-
-          <p
-            style={
-              canGenerateResumeContent
-                ? styles.readyMessage
-                : styles.warningMessage
-            }
-          >
-            {resumeContentStatusMessage}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleResumeContent}
-          disabled={!canGenerateResumeContent}
-          style={
-            canGenerateResumeContent
-              ? styles.resumeContentButton
-              : styles.disabledResumeContentButton
-          }
-          title={
-            canGenerateResumeContent
-              ? "Open resume content generation"
-              : resumeContentStatusMessage
-          }
-        >
-          {profileLoading
-            ? "Checking profile..."
-            : "Generate resume content"}
-        </button>
-      </section>
-
-      <section style={styles.resumeHistoryBox}>
-        <div>
-          <h2 style={styles.resumeHistoryTitle}>
-            Resume version history
-          </h2>
-
-          <p style={styles.resumeHistoryDescription}>
-            View your active resume, previous versions, and
-            track improvement over time.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleResumeHistory}
-          style={styles.resumeHistoryButton}
-        >
-          View resume history
-        </button>
-      </section>
+      {featureCards.map((feature) => (
+        <FeatureCard
+          key={feature.path}
+          {...feature}
+          onNavigate={() => navigate(feature.path)}
+        />
+      ))}
 
       <section style={styles.statusBox}>
-        <h2>Profile status</h2>
+        <h2 style={styles.sectionTitle}>Profile status</h2>
 
-        <div style={styles.statusRow}>
-          <span>Resume uploaded</span>
+        {profileLoading ? (
+          <p role="status">Checking your profile status...</p>
+        ) : profileError ? (
+          <p style={styles.warningMessage}>
+            Profile status is temporarily unavailable.
+          </p>
+        ) : (
+          <>
+            <ProfileStatusRow
+              label="Resume uploaded"
+              completed={hasUploadedResume}
+            />
 
-          <span
-            style={
-              hasUploadedResume
-                ? styles.completedStatus
-                : styles.pendingStatus
-            }
-          >
-            {hasUploadedResume
-              ? "Completed"
-              : "Pending"}
-          </span>
-        </div>
+            <ProfileStatusRow
+              label="Skills available"
+              completed={hasSkills}
+            />
 
-        <div style={styles.statusRow}>
-          <span>Skills available</span>
+            <ProfileStatusRow
+              label="Target role selected"
+              completed={hasSelectedRole}
+            />
 
-          <span
-            style={
-              hasSkills
-                ? styles.completedStatus
-                : styles.pendingStatus
-            }
-          >
-            {hasSkills
-              ? "Completed"
-              : "Pending"}
-          </span>
-        </div>
+            {profile?.selectedRoleTitle && (
+              <p style={styles.selectedRole}>
+                Selected role:{" "}
+                <strong>{profile.selectedRoleTitle}</strong>
+              </p>
+            )}
 
-        <div style={styles.statusRow}>
-          <span>Target role selected</span>
-
-          <span
-            style={
-              hasSelectedRole
-                ? styles.completedStatus
-                : styles.pendingStatus
-            }
-          >
-            {hasSelectedRole
-              ? "Completed"
-              : "Pending"}
-          </span>
-        </div>
-
-        {profile?.selectedRoleTitle && (
-          <div style={styles.selectedRole}>
-            Selected role:{" "}
-            <strong>
-              {profile.selectedRoleTitle}
-            </strong>
-          </div>
+            <p style={styles.statusNote}>
+              These indicators show profile setup status—not
+              independent verification or knowledge depth.
+            </p>
+          </>
         )}
       </section>
     </DashboardCard>
   );
 }
+
+function FeatureCard({
+  title,
+  description,
+  buttonLabel,
+  enabled,
+  statusMessage,
+  theme,
+  onNavigate,
+}) {
+  const colors = themes[theme] || themes.indigo;
+
+  return (
+    <section
+      style={{
+        ...styles.featureBox,
+        background: colors.background,
+        borderColor: colors.border,
+      }}
+    >
+      <div style={styles.featureContent}>
+        <h2
+          style={{
+            ...styles.sectionTitle,
+            color: colors.text,
+          }}
+        >
+          {title}
+        </h2>
+
+        <p style={styles.description}>{description}</p>
+
+        {statusMessage && (
+          <p
+            style={
+              enabled
+                ? styles.readyMessage
+                : styles.warningMessage
+            }
+          >
+            {statusMessage}
+          </p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={onNavigate}
+        disabled={!enabled}
+        title={!enabled ? statusMessage : title}
+        style={{
+          ...styles.featureButton,
+          background: colors.button,
+          ...(!enabled ? styles.disabledButton : {}),
+        }}
+      >
+        {buttonLabel}
+      </button>
+    </section>
+  );
+}
+
+function ProfileStatusRow({ label, completed }) {
+  return (
+    <div style={styles.statusRow}>
+      <span>{label}</span>
+
+      <span
+        style={
+          completed
+            ? styles.completedStatus
+            : styles.pendingStatus
+        }
+      >
+        {completed ? "Completed" : "Pending"}
+      </span>
+    </div>
+  );
+}
+
+const themes = {
+  indigo: {
+    background: "#eef2ff",
+    border: "#c7d2fe",
+    text: "#3730a3",
+    button: "#4f46e5",
+  },
+  green: {
+    background: "#ecfdf5",
+    border: "#a7f3d0",
+    text: "#047857",
+    button: "#059669",
+  },
+  purple: {
+    background: "#f5f3ff",
+    border: "#ddd6fe",
+    text: "#6d28d9",
+    button: "#7c3aed",
+  },
+  teal: {
+    background: "#f0fdfa",
+    border: "#99f6e4",
+    text: "#0f766e",
+    button: "#0f766e",
+  },
+  amber: {
+    background: "#fffbeb",
+    border: "#fde68a",
+    text: "#a16207",
+    button: "#a16207",
+  },
+  sky: {
+    background: "#f0f9ff",
+    border: "#bae6fd",
+    text: "#0369a1",
+    button: "#0284c7",
+  },
+};
 
 const styles = {
   page: {
@@ -564,30 +596,19 @@ const styles = {
     background: "#f4f7fb",
   },
 
-  loadingCard: {
+  stateCard: {
     width: "100%",
     maxWidth: "850px",
     margin: "0 auto",
     padding: "32px",
     borderRadius: "18px",
     background: "#ffffff",
-    boxShadow:
-      "0 10px 30px rgba(15, 23, 42, 0.12)",
-  },
-
-  errorCard: {
-    width: "100%",
-    maxWidth: "850px",
-    margin: "0 auto",
-    padding: "32px",
-    borderRadius: "18px",
-    background: "#ffffff",
-    boxShadow:
-      "0 10px 30px rgba(15, 23, 42, 0.12)",
+    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)",
   },
 
   header: {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: "20px",
@@ -607,11 +628,10 @@ const styles = {
   },
 
   logoutButton: {
-    flexShrink: 0,
     padding: "10px 16px",
     border: "none",
     borderRadius: "8px",
-    background: "#ef4444",
+    background: "#dc2626",
     color: "#ffffff",
     fontSize: "14px",
     fontWeight: 600,
@@ -626,15 +646,26 @@ const styles = {
     background: "#eff6ff",
   },
 
-  buttonGroup: {
+  sectionTitle: {
+    margin: "0 0 8px",
+    fontSize: "21px",
+  },
+
+  description: {
+    margin: "0 0 12px",
+    color: "#475569",
+    lineHeight: 1.6,
+  },
+
+  profileActions: {
     display: "flex",
-    flexWrap: "wrap",
+    flexDirection: "column",
+    alignItems: "flex-start",
     gap: "12px",
-    marginTop: "8px",
+    marginTop: "16px",
   },
 
   primaryButton: {
-    marginTop: "16px",
     padding: "12px 18px",
     border: "none",
     borderRadius: "9px",
@@ -646,7 +677,6 @@ const styles = {
   },
 
   secondaryButton: {
-    marginTop: "16px",
     padding: "12px 18px",
     border: "1px solid #2563eb",
     borderRadius: "9px",
@@ -657,227 +687,110 @@ const styles = {
     cursor: "pointer",
   },
 
-  atsBox: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "24px",
+  evidenceSection: {
     marginTop: "24px",
     padding: "24px",
-    border: "1px solid #c7d2fe",
+    border: "1px solid #cbd5e1",
     borderRadius: "14px",
-    background: "#eef2ff",
+    background: "#ffffff",
   },
 
-  atsTitle: {
-    marginTop: 0,
-    marginBottom: "8px",
-    color: "#3730a3",
+  evidenceNotice: {
+    margin: "16px 0",
+    padding: "12px 14px",
+    border: "1px solid #fde68a",
+    borderRadius: "9px",
+    background: "#fffbeb",
+    color: "#854d0e",
+    fontSize: "14px",
+    lineHeight: 1.6,
   },
 
-  atsDescription: {
-    marginTop: 0,
-    color: "#4338ca",
+  evidenceGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(min(100%, 230px), 1fr))",
+    gap: "16px",
+    marginTop: "18px",
   },
 
-  atsButton: {
-    flexShrink: 0,
+  evidenceCard: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    padding: "20px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "12px",
+    background: "#f8fafc",
+    minWidth: 0,
+  },
+
+  evidenceCardTitle: {
+    margin: "0 0 10px",
+    fontSize: "18px",
+    color: "#1e3a5f",
+  },
+
+  evidenceButton: {
+    marginTop: "auto",
+    maxWidth: "100%",
+    padding: "11px 15px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#1e40af",
+    color: "#ffffff",
+    fontSize: "14px",
+    fontWeight: 600,
+    lineHeight: 1.5,
+    textAlign: "left",
+    cursor: "pointer",
+  },
+
+  featureBox: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "20px",
+    marginTop: "24px",
+    padding: "24px",
+    border: "1px solid",
+    borderRadius: "14px",
+  },
+
+  featureContent: {
+    flex: "1 1 280px",
+    minWidth: 0,
+  },
+
+  featureButton: {
+    maxWidth: "100%",
     padding: "12px 18px",
     border: "none",
     borderRadius: "9px",
-    background: "#4f46e5",
     color: "#ffffff",
     fontSize: "15px",
     fontWeight: 600,
     cursor: "pointer",
   },
 
-  disabledATSButton: {
-    flexShrink: 0,
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: "9px",
-    background: "#a5b4fc",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
+  disabledButton: {
+    opacity: 0.55,
     cursor: "not-allowed",
   },
 
   readyMessage: {
-    marginBottom: 0,
+    margin: 0,
     color: "#166534",
     fontSize: "14px",
+    lineHeight: 1.5,
   },
 
   warningMessage: {
-    marginBottom: 0,
+    margin: 0,
     color: "#92400e",
     fontSize: "14px",
-  },
-
-  skillGapBox: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "24px",
-    marginTop: "24px",
-    padding: "24px",
-    border: "1px solid #a7f3d0",
-    borderRadius: "14px",
-    background: "#ecfdf5",
-  },
-
-  skillGapTitle: {
-    marginTop: 0,
-    marginBottom: "8px",
-    color: "#047857",
-  },
-
-  skillGapDescription: {
-    marginTop: 0,
-    color: "#065f46",
-  },
-
-  skillGapButton: {
-    flexShrink: 0,
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: "9px",
-    background: "#059669",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  disabledSkillGapButton: {
-    flexShrink: 0,
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: "9px",
-    background: "#6ee7b7",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "not-allowed",
-  },
-
-  progressBox: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "24px",
-    marginTop: "24px",
-    padding: "24px",
-    border: "1px solid #ddd6fe",
-    borderRadius: "14px",
-    background: "#f5f3ff",
-  },
-
-  progressTitle: {
-    marginTop: 0,
-    marginBottom: "8px",
-    color: "#6d28d9",
-  },
-
-  progressDescription: {
-    marginTop: 0,
-    color: "#5b21b6",
-  },
-
-  progressButton: {
-    flexShrink: 0,
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: "9px",
-    background: "#7c3aed",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  resumeContentBox: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "24px",
-    marginTop: "24px",
-    padding: "24px",
-    border: "1px solid #fde68a",
-    borderRadius: "14px",
-    background: "#fffbeb",
-  },
-
-  resumeContentTitle: {
-    marginTop: 0,
-    marginBottom: "8px",
-    color: "#a16207",
-  },
-
-  resumeContentDescription: {
-    marginTop: 0,
-    color: "#854d0e",
-  },
-
-  resumeContentButton: {
-    flexShrink: 0,
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: "9px",
-    background: "#ca8a04",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  disabledResumeContentButton: {
-    flexShrink: 0,
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: "9px",
-    background: "#fcd34d",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "not-allowed",
-  },
-
-  resumeHistoryBox: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "24px",
-    marginTop: "24px",
-    padding: "24px",
-    border: "1px solid #bae6fd",
-    borderRadius: "14px",
-    background: "#f0f9ff",
-  },
-
-  resumeHistoryTitle: {
-    marginTop: 0,
-    marginBottom: "8px",
-    color: "#0369a1",
-  },
-
-  resumeHistoryDescription: {
-    marginTop: 0,
-    color: "#075985",
-  },
-
-  resumeHistoryButton: {
-    flexShrink: 0,
-    padding: "12px 18px",
-    border: "none",
-    borderRadius: "9px",
-    background: "#0284c7",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
+    lineHeight: 1.5,
   },
 
   statusBox: {
@@ -890,9 +803,10 @@ const styles = {
 
   statusRow: {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "16px",
+    gap: "12px",
     padding: "12px 0",
     borderBottom: "1px solid #e2e8f0",
   },
@@ -916,8 +830,28 @@ const styles = {
   },
 
   selectedRole: {
-    marginTop: "16px",
+    margin: "16px 0 0",
     color: "#334155",
+  },
+
+  statusNote: {
+    margin: "14px 0 0",
+    color: "#64748b",
+    fontSize: "13px",
+    lineHeight: 1.6,
+  },
+
+  profileErrorBox: {
+    marginTop: "20px",
+    padding: "16px",
+    border: "1px solid #fecaca",
+    borderRadius: "10px",
+    background: "#fff1f2",
+  },
+
+  profileErrorText: {
+    margin: "0 0 12px",
+    color: "#b91c1c",
   },
 
   error: {

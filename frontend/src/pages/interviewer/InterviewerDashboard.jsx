@@ -1,148 +1,132 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
-import DashboardCard from "../../components/DashboardCard";
+import LogoutButton from "../../components/LogoutButton";
 import { getInterviewerDashboard } from "../../api/dashboardApi";
+
+import {
+  CareerPage,
+  Notice,
+} from "../../components/career/CareerUI";
 
 export default function InterviewerDashboard() {
   const [dashboard, setDashboard] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
+
     async function loadDashboard() {
+      setLoading(true);
+      setError("");
+      setDashboard(null);
+
       try {
         const data = await getInterviewerDashboard();
-        setDashboard(data);
+
+        if (active) {
+          setDashboard(data);
+        }
       } catch (requestError) {
-        setError(
-          requestError.response?.data?.message ||
-            "Unable to load interviewer dashboard"
-        );
+        if (active) {
+          setError(
+            requestError.response?.data?.message ||
+              "Unable to load interviewer dashboard. Please try again."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     loadDashboard();
-  }, []);
 
-  if (error) {
-    return (
-      <DashboardCard
-        title="Technical Interviewer Dashboard"
-        role="TECH_INTERVIEWER"
-        email="Unknown user"
-        message="Unable to load interviewer dashboard"
-      >
-        <p style={styles.error}>{error}</p>
-
-        <button
-          type="button"
-          style={styles.primaryButton}
-          onClick={() => window.location.reload()}
-        >
-          Try again
-        </button>
-      </DashboardCard>
-    );
-  }
-
-  if (!dashboard) {
-    return (
-      <main style={styles.loadingPage}>
-        <p>Loading interviewer dashboard...</p>
-      </main>
-    );
-  }
+    return () => {
+      active = false;
+    };
+  }, [retryCount]);
 
   return (
-    <DashboardCard
-      title={
-        dashboard.title ||
-        "Technical Interviewer Dashboard"
-      }
-      role={dashboard.role || "TECH_INTERVIEWER"}
-      email={dashboard.email || "Technical Interviewer"}
-      message={
-        dashboard.message ||
-        "Review candidate skills, generate questions, and record structured feedback."
-      }
+    <CareerPage
+      title="Technical interviewer workspace"
+      backTo="/home"
+      description="Inspect assigned evidence and record accountable, scoped review decisions."
     >
-      <h2>Technical interview workspace</h2>
+      {loading && (
+        <Notice>
+          Loading interviewer dashboard…
+        </Notice>
+      )}
 
-      <p>
-        Review candidate skills, generate questions, and
-        record structured feedback.
-      </p>
+      {!loading && error && (
+        <section className="career-card">
+          <Notice type="error">{error}</Notice>
 
-      <div style={styles.actions}>
-        <button
-          type="button"
-          style={styles.primaryButton}
-          onClick={() => {
-            alert(
-              "Candidate profiles will be implemented next."
-            );
-          }}
-        >
-          View Candidate Profiles
-        </button>
+          <div className="career-actions">
+            <button
+              type="button"
+              className="career-button"
+              onClick={() =>
+                setRetryCount((previous) => previous + 1)
+              }
+            >
+              Try again
+            </button>
 
-        <button
-          type="button"
-          style={styles.secondaryButton}
-          onClick={() => {
-            alert(
-              "Question generation will be implemented next."
-            );
-          }}
-        >
-          Generate Questions
-        </button>
-      </div>
-    </DashboardCard>
+            <LogoutButton />
+          </div>
+        </section>
+      )}
+
+      {!loading && !error && dashboard && (
+        <section className="career-card">
+          <div className="career-row">
+            <div>
+              <h2>
+                {dashboard.title ||
+                  "Technical Interviewer Dashboard"}
+              </h2>
+
+              {dashboard.email && (
+                <p className="career-muted">
+                  Logged in as: {dashboard.email}
+                </p>
+              )}
+            </div>
+
+            <LogoutButton />
+          </div>
+
+          {dashboard.message && (
+            <p>{dashboard.message}</p>
+          )}
+
+          <Notice>
+            Only approved interviewers with explicit student
+            assignments can access the review queue.
+          </Notice>
+
+          <p>
+            Inspect the student’s original claim, supporting
+            artifacts, and contribution details. Record exactly
+            what the evidence supports, how you reviewed it,
+            and what remains unassessed.
+          </p>
+
+          <div className="career-actions">
+            <Link
+              className="career-button"
+              to="/interviewer/evidence-reviews"
+            >
+              Open evidence review queue
+            </Link>
+          </div>
+        </section>
+      )}
+    </CareerPage>
   );
 }
-
-const styles = {
-  loadingPage: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#f4f7fb",
-  },
-
-  actions: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "12px",
-    marginTop: "20px",
-  },
-
-  primaryButton: {
-    padding: "10px 18px",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  secondaryButton: {
-    padding: "10px 18px",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: "#ea580c",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  error: {
-    marginBottom: "20px",
-    padding: "12px",
-    borderRadius: "8px",
-    backgroundColor: "#fee2e2",
-    color: "#b91c1c",
-  },
-};

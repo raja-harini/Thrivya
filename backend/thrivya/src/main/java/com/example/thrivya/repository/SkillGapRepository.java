@@ -15,7 +15,7 @@ public interface SkillGapRepository
             SELECT COALESCE(MAX(s.analysisVersion), 0)
             FROM SkillGap s
             WHERE s.profile.id = :profileId
-            AND s.role.id = :roleId
+              AND s.role.id = :roleId
             """)
     Integer findLatestAnalysisVersion(
             @Param("profileId") Long profileId,
@@ -35,7 +35,7 @@ public interface SkillGapRepository
             JOIN FETCH s.role
             LEFT JOIN FETCH s.resume
             WHERE s.profile.id = :profileId
-            AND s.role.id = :roleId
+              AND s.role.id = :roleId
             ORDER BY s.analysisVersion DESC,
                      s.calculatedAt DESC
             """)

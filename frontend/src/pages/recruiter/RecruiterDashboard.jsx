@@ -1,141 +1,138 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
-import DashboardCard from "../../components/DashboardCard";
+import LogoutButton from "../../components/LogoutButton";
 import { getRecruiterDashboard } from "../../api/dashboardApi";
+
+import {
+  CareerPage,
+  Notice,
+} from "../../components/career/CareerUI";
 
 export default function RecruiterDashboard() {
   const [dashboard, setDashboard] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
+
     async function loadDashboard() {
+      setLoading(true);
+      setError("");
+      setDashboard(null);
+
       try {
         const data = await getRecruiterDashboard();
-        setDashboard(data);
+
+        if (active) {
+          setDashboard(data);
+        }
       } catch (requestError) {
-        setError(
-          requestError.response?.data?.message ||
-            "Unable to load recruiter dashboard"
-        );
+        if (active) {
+          setError(
+            requestError.response?.data?.message ||
+              "Unable to load recruiter dashboard. Please try again."
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     loadDashboard();
-  }, []);
 
-  if (error) {
-    return (
-      <DashboardCard
-        title="Recruiter Dashboard"
-        role="RECRUITER"
-        email="Unknown user"
-        message="Unable to load recruiter dashboard"
-      >
-        <p style={styles.errorMessage}>{error}</p>
+    return () => {
+      active = false;
+    };
+  }, [retryCount]);
 
-        <button
-          type="button"
-          style={styles.primaryButton}
-          onClick={() => window.location.reload()}
-        >
-          Try again
-        </button>
-      </DashboardCard>
-    );
-  }
-
-  if (!dashboard) {
-    return (
-      <main style={styles.loadingPage}>
-        <p>Loading recruiter dashboard...</p>
-      </main>
-    );
+  function handleRetry() {
+    setRetryCount((previous) => previous + 1);
   }
 
   return (
-    <DashboardCard
-      title={dashboard.title || "Recruiter Dashboard"}
-      role={dashboard.role || "RECRUITER"}
-      email={dashboard.email || "Recruiter"}
-      message={
-        dashboard.message ||
-        "Recruiter dashboard accessed"
-      }
+    <CareerPage
+      title="Recruiter workspace"
+      backTo="/home"
+      description="Inspect student-shared career profiles with traceable evidence and review limitations."
     >
-      <h2>Recruiter workspace</h2>
+      {loading && (
+        <section className="career-card" aria-busy="true">
+          <Notice>Loading recruiter dashboard…</Notice>
+        </section>
+      )}
 
-      <p>
-        Create job descriptions and discover candidates
-        with verified skills and evidence.
-      </p>
+      {!loading && error && (
+        <section className="career-card">
+          <h2>Unable to load your workspace</h2>
 
-      <div style={styles.actions}>
-        <button
-          type="button"
-          style={styles.primaryButton}
-          onClick={() => {
-            console.log("Create Job Description clicked");
-          }}
-        >
-          Create Job Description
-        </button>
+          <Notice type="error">{error}</Notice>
 
-        <button
-          type="button"
-          style={styles.secondaryButton}
-          onClick={() => {
-            console.log("Search Candidates clicked");
-          }}
-        >
-          Search Candidates
-        </button>
-      </div>
-    </DashboardCard>
+          <div className="career-actions">
+            <button
+              type="button"
+              className="career-button"
+              onClick={handleRetry}
+            >
+              Try again
+            </button>
+
+            <LogoutButton />
+          </div>
+        </section>
+      )}
+
+      {!loading && !error && dashboard && (
+        <section className="career-card">
+          <div className="career-row">
+            <div>
+              <h2>
+                {dashboard.title || "Recruiter Dashboard"}
+              </h2>
+
+              {dashboard.email && (
+                <p className="career-muted">
+                  Logged in as: {dashboard.email}
+                </p>
+              )}
+            </div>
+
+            <LogoutButton />
+          </div>
+
+          <p>
+            Review candidate claims, supporting artifacts,
+            and scoped reviewer decisions before assessing
+            technical knowledge.
+          </p>
+
+          <Notice>
+            Recruiter approval and active student sharing
+            permission are both required. A recruiter role
+            alone does not grant access to every student.
+          </Notice>
+
+          <Notice type="warning">
+            Supporting evidence applies only to the scope
+            recorded in each review. It does not guarantee
+            complete skill mastery or replace a technical
+            interview.
+          </Notice>
+
+          <div className="career-actions">
+            <Link
+              className="career-button"
+              to="/recruiter/career-evidence"
+            >
+              Open a shared candidate profile
+            </Link>
+          </div>
+        </section>
+      )}
+    </CareerPage>
   );
 }
-
-const styles = {
-  loadingPage: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    background: "#f4f7fb",
-  },
-
-  actions: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "10px",
-    marginTop: "20px",
-  },
-
-  primaryButton: {
-    padding: "10px 18px",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  secondaryButton: {
-    padding: "10px 18px",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: "#7c3aed",
-    color: "#ffffff",
-    fontSize: "15px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-
-  errorMessage: {
-    marginBottom: "20px",
-    padding: "12px",
-    borderRadius: "8px",
-    backgroundColor: "#fee2e2",
-    color: "#b91c1c",
-  },
-};
